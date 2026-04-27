@@ -46,7 +46,7 @@ This repo contains two solvers and a full training pipeline:
   At execution:   CBS is gone — purely emergent coordination from weights
 ```
 
-### CBS-Bootstrapped Curriculum (novel)
+### CBS-Bootstrapped Curriculum
 
 ```
 Phase A  [steps 0 → 50k]      CBS weight = 1.0   agents learn basic navigation
@@ -62,7 +62,7 @@ Auto-advances when success rate > 80%,  regresses when < 40%
 ## Quick start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/mapf-cbs
+git clone https://github.com/KyawLinnKhant/mapf-cbs
 cd mapf-cbs
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -156,8 +156,8 @@ CBS bootstrap breaks the cold-start: in Phase A, the CBS oracle shows agents wha
 good behaviour looks like. As the agent improves, the CBS guidance phases out linearly.
 By Phase C the agent is fully autonomous — CBS is gone from the policy entirely.
 
-This is the contribution most comparable to work like PRIMAL (Sartoretti et al. 2019)
-and MAPF-LNS2, but applied to the transformer-attention MARL setting.
+This is comparable to work like PRIMAL (Sartoretti et al. 2019) and MAPF-LNS2,
+applied to the transformer-attention MARL setting.
 
 ---
 
@@ -166,11 +166,11 @@ and MAPF-LNS2, but applied to the transformer-attention MARL setting.
 - Sharon et al. (2015). *Conflict-based search for optimal multi-agent pathfinding.* AI, 219, 40–66.
 - Sartoretti et al. (2019). *PRIMAL: Pathfinding via reinforcement and imitation multi-agent learning.*
 - Yu et al. (2022). *The surprising effectiveness of PPO in cooperative multi-agent games (MAPPO).*
-- **EKF SLAM** — my 2D LiDAR SLAM with Taubin circle fitting: [github.com/YOUR_USERNAME/ekf-slam-2d](https://github.com/YOUR_USERNAME/ekf-slam-2d)
+- **EKF SLAM** — 2D LiDAR SLAM with Taubin circle fitting: [github.com/KyawLinnKhant/slam_turtlebot_ros](https://github.com/KyawLinnKhant/slam_turtlebot_ros)
 
 ---
 
 ## Author
 
 **Kyaw Linn Khant** — Robotics & AI Engineer  
-[LinkedIn](https://linkedin.com/in/kyawlinnkhant) · [GitHub](https://github.com/YOUR_USERNAME)
+[Portfolio](https://kyawlinnkhant.github.io/my_portfolio/) · [LinkedIn](https://linkedin.com/in/kyawlinnkhant) · [GitHub](https://github.com/KyawLinnKhant)
