@@ -50,6 +50,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--save-interval",  type=int,   default=100_000)
     p.add_argument("--device",         default="auto",
                    help="cpu | cuda | mps | auto")
+    p.add_argument("--resume",         default=None,
+                   help="Path to checkpoint .pt file to resume from")
+    p.add_argument("--resume-step",    type=int, default=0,
+                   help="Global step count at resume point (for logging/scheduling)")
     return p.parse_args()
 
 
@@ -86,6 +90,11 @@ def main() -> None:
         save_interval  = args.save_interval,
         device         = device,
     )
+
+    if args.resume:
+        trainer.agent.load(args.resume)
+        trainer._global_step = args.resume_step
+        print(f"Resumed from {args.resume} at step {args.resume_step:,}")
 
     trainer.train()
 
