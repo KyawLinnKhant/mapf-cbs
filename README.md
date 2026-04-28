@@ -19,30 +19,99 @@ continue work is documented here. Do not ask the user to re-explain the project.
 - No physical robots available. Simulation-only workflow.
 - Goal: arXiv paper + LinkedIn demo post with GIFs and benchmark numbers.
 
+---
+
+## Project Progress Checklist
+
+### Core System
+- [x] CBS solver (`src/cbs.py`) — optimal MAPF baseline
+- [x] Space-time A* with vertex + edge constraints (`src/astar.py`)
+- [x] A* O(n²) path-copy bug fixed → parent-pointer reconstruction
+- [x] Procedural map generator — maze, room-corridor, scatter (`src/maps.py`)
+- [x] Multi-agent MAPF environment with lifelong goals (`src/env.py`)
+- [x] Transformer communication module — variable N agents via padding mask (`src/comm.py`)
+- [x] MAPPO — shared actor + centralised critic + PPO update (`src/mappo.py`)
+- [x] 3-phase CBS annealing curriculum (`src/curriculum.py`)
+- [x] Training loop with curriculum advance/regress (`src/trainer.py`)
+- [x] Visualiser — animated GIF + static PNG (`src/visualize.py`)
+
+### Bug Fixes Applied
+- [x] A* O(n²) path copy → O(n) parent pointers
+- [x] CBS eval hanging → `max_ct_nodes=10_000` cap
+- [x] Empty buffer crash on curriculum advance → guard in `MAPPO.update()`
+- [x] `ep_reward` shape mismatch on level transition → resize on advance
+- [x] Policy entropy collapse (0.01→0.05 entropy coef)
+
+### Training
+- [x] Full 5M-step run launched — easy→medium→hard→expert curriculum
+- [x] Phase A complete (0–100k steps, CBS weight=1.0)
+- [x] Phase B complete (100k–500k steps, CBS annealed to 0)
+- [ ] Phase C in progress (500k–5M steps, pure RL) — ~step 571k as of last check
+- [ ] `mappo_final.pt` saved (end of training)
+- [x] Checkpoint at step 250k saved
+- [x] Checkpoint at step 500k saved
+
+### Deployment & Visualisation
+- [x] `deploy.py` — runs all 4 levels, saves GIF + PNG per level
+- [x] Preview GIFs generated at step 500k (`results/marl_*.gif`)
+- [ ] Final GIFs generated from `mappo_final.pt` (after training)
+
+### Language-Conditioned MAPF
+- [x] Named warehouse zones per difficulty level (`src/zones.py`)
+- [x] Ollama LLM interface — JSON zone assignment parser (`src/lang.py`)
+- [x] Rule-based regex fallback (works without Ollama)
+- [x] Interactive REPL demo — command → navigate → GIF (`lang_demo.py`)
+- [x] Default model switched to `qwen2.5:3b` (free, local)
+- [ ] Language demo tested with live Ollama (user needs `ollama pull qwen2.5:3b`)
+
+### Paper Tooling
+- [x] `plot_curves.py` — 3-panel learning curve figure (goals/collisions/entropy)
+- [x] `training_log.txt` — live log captured (steps 2k–534k)
+- [x] `eval.py --csv` — appends per-level results to CSV
+- [x] `eval.py --latex` — prints copy-paste LaTeX table row
+- [ ] Final eval numbers (200 eps × 4 levels) from `mappo_final.pt`
+- [ ] Final learning curves figure with full 5M-step log
+- [ ] Ablation runs (5 planned — see Ablation Plan section)
+
+### Paper & Publishing
+- [ ] arXiv paper draft
+- [ ] LinkedIn post with GIFs + benchmark numbers
+- [ ] arXiv submission
+
+### Infrastructure
+- [x] GitHub repo: https://github.com/KyawLinnKhant/mapf-cbs
+- [x] `.gitignore` — checkpoints excluded (too large)
+- [x] `requirements.txt` — numpy, matplotlib, pillow, torch, ollama
+- [x] README as full session context document
+
+---
+
 ### Active Training Run (as of 2026-04-28)
 - **Command:** `python -u train.py --total-steps 5000000 --anneal-end 500000 --warmup-steps 100000 --entropy-coef 0.05 --start-level easy --device mps --log-interval 2000 --save-interval 250000`
-- **Checkpoint saved:** `checkpoints/mappo_step250112.pt`
+- **Checkpoints saved:** `mappo_step250112.pt`, `mappo_step500224.pt`
 - **Latest checkpoint:** `checkpoints/mappo_final.pt` (written at end of run)
+- **Last known step:** ~571k / 5M (11.4%), Phase C, goals=26.6
 - Training takes ~12–14 hours total on M-series MPS.
 
-### Pending tasks when training finishes
-1. Run eval across all 4 levels (200 episodes each):
+### When training finishes — run these in order
+1. Run eval across all 4 levels:
    ```bash
    source .venv/bin/activate
    for level in easy medium hard expert; do
-     python eval.py --level $level --n-episodes 200 --device mps
+     python eval.py --level $level --n-episodes 200 --device mps --csv results/eval.csv --latex
    done
    ```
-2. Generate deployment GIFs + PNGs:
+2. Generate final deployment GIFs:
    ```bash
    python deploy.py --device mps
    ```
-3. Optionally run language demo:
+3. Update training log and regenerate learning curves:
    ```bash
-   ollama pull qwen2.5:3b   # only once, ~2 GB
-   python lang_demo.py --level expert
+   grep "^step=" <task-output-file> >> training_log.txt
+   grep "\[Curriculum" <task-output-file> >> training_log.txt
+   python plot_curves.py --log training_log.txt --smooth 8
    ```
-4. Write arXiv paper (see Paper Plan section below).
+4. Write arXiv paper + LinkedIn post (see Paper Plan section).
 
 ---
 
