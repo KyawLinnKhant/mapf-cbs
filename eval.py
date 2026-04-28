@@ -67,12 +67,16 @@ def eval_cbs(
     n_episodes: int,
     seed_offset: int = 99_999,
     max_t: int = 256,
+    max_ct_nodes: int = 10_000,
 ) -> Dict[str, float]:
     """Run CBS solver on n_episodes of the same map seeds."""
     rng = np.random.default_rng(seed_offset)
     soc_list, makespan_list, success_list, time_list = [], [], [], []
 
     for ep in range(n_episodes):
+        if (ep + 1) % 20 == 0:
+            print(f"  CBS episode {ep + 1}/{n_episodes}", flush=True)
+
         grid, _ = generate_map(config, seed=seed_offset + ep)
         starts   = sample_positions(grid, config.n_agents, rng)
         goals    = sample_positions(grid, config.n_agents, rng, exclude=starts)
@@ -82,7 +86,7 @@ def eval_cbs(
             continue
 
         t0       = time.monotonic()
-        solution = cbs(grid, starts, goals, max_t=max_t)
+        solution = cbs(grid, starts, goals, max_t=max_t, max_ct_nodes=max_ct_nodes)
         elapsed  = time.monotonic() - t0
         time_list.append(elapsed)
 
@@ -128,13 +132,50 @@ def print_report(rl: Dict, cbs_m: Dict, level: str, n: int) -> None:
     row("CBS SoC",              None,                 cbs_m["soc"],       fmt=".1f")
     row("CBS solve time (ms)",  None,                 cbs_m["solve_time_ms"], fmt=".1f")
     print("=" * W)
-    # Quick verdict
     if rl["success_rate"] >= cbs_m["success_rate"] * 0.9:
         print("  ✓  MARL matches or nearly matches CBS on success rate.")
     else:
         gap = cbs_m["success_rate"] - rl["success_rate"]
         print(f"  ✗  MARL trails CBS by {gap:.1%} on success rate — train longer.")
     print()
+
+
+def save_csv(rl: Dict, cbs_m: Dict, level: str, n: int, path: str) -> None:
+    """Append one row per level to a CSV file (creates headers if new)."""
+    import csv, os
+    fieldnames = [
+        "level", "episodes",
+        "marl_success", "marl_makespan", "marl_goals", "marl_collisions",
+        "cbs_success", "cbs_makespan", "cbs_soc", "cbs_solve_ms",
+    ]
+    write_header = not os.path.exists(path)
+    with open(path, "a", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            w.writeheader()
+        w.writerow({
+            "level": level, "episodes": n,
+            "marl_success":    round(rl["success_rate"], 4),
+            "marl_makespan":   round(rl["makespan"], 2),
+            "marl_goals":      round(rl["goals_reached"], 2),
+            "marl_collisions": round(rl["collisions"], 2),
+            "cbs_success":     round(cbs_m["success_rate"], 4),
+            "cbs_makespan":    round(cbs_m["makespan"], 2),
+            "cbs_soc":         round(cbs_m["soc"], 2),
+            "cbs_solve_ms":    round(cbs_m["solve_time_ms"], 2),
+        })
+    print(f"  CSV row appended → {path}")
+
+
+def print_latex_row(rl: Dict, cbs_m: Dict, level: str) -> None:
+    """Print a single LaTeX table row for copy-paste into paper."""
+    agents = {"easy": 2, "medium": 4, "hard": 8, "expert": 12}.get(level, "?")
+    grid   = {"easy": "7×7", "medium": "11×11", "hard": "15×15", "expert": "20×20"}.get(level, "?")
+    print(
+        f"  {level.capitalize()} ({grid}, {agents}a) & "
+        f"{rl['success_rate']:.2f} & {rl['makespan']:.1f} & {rl['goals_reached']:.1f} & {rl['collisions']:.1f} & "
+        f"{cbs_m['success_rate']:.2f} & {cbs_m['makespan']:.1f} & {cbs_m['soc']:.1f} & {cbs_m['solve_time_ms']:.1f} \\\\"
+    )
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -151,6 +192,10 @@ def main() -> None:
     p.add_argument("--device",        default="cpu")
     p.add_argument("--cbs-only",      action="store_true",
                    help="Skip RL evaluation (useful when no checkpoint exists yet)")
+    p.add_argument("--csv",           default=None,
+                   help="Append results row to this CSV file (e.g. results/eval.csv)")
+    p.add_argument("--latex",         action="store_true",
+                   help="Print a LaTeX table row for the paper")
     args = parse_args(p)
 
     config = DIFFICULTY_LEVELS[args.level]
@@ -183,6 +228,11 @@ def main() -> None:
 
     if rl_metrics is not None:
         print_report(rl_metrics, cbs_metrics, args.level, args.n_episodes)
+        if args.csv:
+            save_csv(rl_metrics, cbs_metrics, args.level, args.n_episodes, args.csv)
+        if args.latex:
+            print("\n  LaTeX row:")
+            print_latex_row(rl_metrics, cbs_metrics, args.level)
     else:
         # CBS-only report
         print(f"\nCBS baseline — level: {args.level} | episodes: {args.n_episodes}")
