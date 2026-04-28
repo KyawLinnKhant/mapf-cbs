@@ -46,7 +46,7 @@ This repo contains two solvers and a full training pipeline:
   At execution:   CBS is gone — purely emergent coordination from weights
 ```
 
-### CBS-Bootstrapped Curriculum
+### CBS-Bootstrapped Curriculum (novel)
 
 ```
 Phase A  [steps 0 → 50k]      CBS weight = 1.0   agents learn basic navigation
@@ -156,8 +156,8 @@ CBS bootstrap breaks the cold-start: in Phase A, the CBS oracle shows agents wha
 good behaviour looks like. As the agent improves, the CBS guidance phases out linearly.
 By Phase C the agent is fully autonomous — CBS is gone from the policy entirely.
 
-This is comparable to work like PRIMAL (Sartoretti et al. 2019) and MAPF-LNS2,
-applied to the transformer-attention MARL setting.
+This is the contribution most comparable to work like PRIMAL (Sartoretti et al. 2019)
+and MAPF-LNS2, but applied to the transformer-attention MARL setting.
 
 ---
 

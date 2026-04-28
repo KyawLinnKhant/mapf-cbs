@@ -1,7 +1,7 @@
 """Space-time A* — low-level solver for CBS."""
 
 import heapq
-from typing import List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from .grid import Grid, Position
 
@@ -36,14 +36,24 @@ def astar(
     vc = vertex_constraints or set()
     ec = edge_constraints or set()
 
-    # Priority queue entries: (f, g, x, y, t, path)
+    start_state = (start[0], start[1], 0)
     start_h = heuristic(start, goal)
-    open_set: List[Tuple] = [(start_h, 0, start[0], start[1], 0, [start])]
+
+    # (f, g, x, y, t) — no path stored in heap
+    open_set: List[Tuple] = [(start_h, 0, start[0], start[1], 0)]
     visited: Set[Tuple[int, int, int]] = set()
+
+    # Parent pointers: state → parent state (None for root)
+    came_from: Dict[Tuple[int, int, int], Optional[Tuple[int, int, int]]] = {
+        start_state: None
+    }
+    # Best g seen so far for each state (avoids re-pushing with worse g)
+    g_score: Dict[Tuple[int, int, int], int] = {start_state: 0}
+
     expansions = 0
 
     while open_set:
-        f, g, x, y, t, path = heapq.heappop(open_set)
+        f, g, x, y, t = heapq.heappop(open_set)
 
         state = (x, y, t)
         if state in visited:
@@ -52,10 +62,16 @@ def astar(
         expansions += 1
 
         if max_nodes and expansions > max_nodes:
-            return None  # budget exhausted
+            return None
 
         if (x, y) == goal:
-            return path
+            # Reconstruct path via parent pointers — O(path_len), not O(n²)
+            path = []
+            cur: Optional[Tuple[int, int, int]] = state
+            while cur is not None:
+                path.append((cur[0], cur[1]))
+                cur = came_from.get(cur)
+            return path[::-1]
 
         if t >= max_t:
             continue
@@ -66,15 +82,18 @@ def astar(
 
             if nstate in visited:
                 continue
-            if (nx, ny, nt) in vc:           # vertex conflict
+            if (nx, ny, nt) in vc:
                 continue
-            if (x, y, nx, ny, nt) in ec:     # edge conflict
+            if (x, y, nx, ny, nt) in ec:
                 continue
-            if (nx, ny, x, y, nt) in ec:     # swap conflict
+            if (nx, ny, x, y, nt) in ec:
                 continue
 
             ng = g + 1
-            nf = ng + heuristic((nx, ny), goal)
-            heapq.heappush(open_set, (nf, ng, nx, ny, nt, path + [(nx, ny)]))
+            if ng < g_score.get(nstate, 10**9):
+                g_score[nstate] = ng
+                came_from[nstate] = state
+                nf = ng + heuristic((nx, ny), goal)
+                heapq.heappush(open_set, (nf, ng, nx, ny, nt))
 
     return None  # no path found

@@ -1,8 +1,10 @@
 __pycache__/
 *.pyc
-.venv/
-checkpoints/
-results/
+*.pyo
+.DS_Store
 *.gif
 *.png
+results/
+.venv/
+checkpoints/
 !results/.gitkeep
