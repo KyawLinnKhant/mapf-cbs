@@ -233,6 +233,8 @@ class MAPPO:
 
     def update(self, last_value: float, n_epochs: int = 4) -> Dict[str, float]:
         """Run PPO update on the current buffer. Clears buffer afterwards."""
+        if len(self.buffer) == 0:
+            return {"policy_loss": 0.0, "value_loss": 0.0, "entropy": 0.0}
         advantages, returns = self.buffer.compute_gae(
             last_value, self.gamma, self.gae_lambda
         )
