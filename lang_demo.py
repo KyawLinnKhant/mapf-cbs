@@ -72,7 +72,7 @@ def main():
     p.add_argument("--checkpoint",    default="checkpoints/mappo_final.pt")
     p.add_argument("--level",         default="expert",
                    choices=["easy", "medium", "hard", "expert"])
-    p.add_argument("--model",         default="kimi-k2.6:cloud",
+    p.add_argument("--model",         default="qwen2.5:3b",
                    help="Ollama model name")
     p.add_argument("--hidden-dim",    type=int, default=128)
     p.add_argument("--n-heads",       type=int, default=4)

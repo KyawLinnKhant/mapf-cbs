@@ -59,7 +59,7 @@ def parse_command(
     command: str,
     n_agents: int,
     level: str,
-    model: str = "kimi-k2.6:cloud",
+    model: str = "qwen2.5:3b",
 ) -> Dict[int, str]:
     """
     Parse a natural language command into {agent_id: zone_name}.
