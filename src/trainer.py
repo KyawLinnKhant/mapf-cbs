@@ -160,6 +160,7 @@ class Trainer:
                         self.agent.buffer.clear()          # flush stale transitions
                         self.env = MAPFEnv(new_cfg, max_steps=256)
                         self.agent.n_agents = new_cfg.n_agents
+                        ep_reward = np.zeros(new_cfg.n_agents)
                         print(
                             f"\n  [Curriculum ↑] → {new_level} "
                             f"(step {self._global_step:,}, ep {self._episode})\n"
