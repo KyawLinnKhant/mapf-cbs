@@ -11,6 +11,7 @@ import numpy as np
 from .cbs import cbs
 from .grid import Grid, Position, MOVES
 from .maps import MapConfig, generate_map, sample_positions
+from .dynamic import DynamicObstacle, spawn_dynamic_obstacles
 
 # ── Observation constants ────────────────────────────────────────────────────
 CROP_SIZE = 7            # local grid crop (square)
@@ -50,11 +51,15 @@ class MAPFEnv:
         max_steps: int = 256,
         cbs_timeout: float = 1.5,
         seed: Optional[int] = None,
+        n_dynamic_obstacles: int = 0,
+        dynamic_pattern: str = "mixed",
     ):
         self.config = config
         self.max_steps = max_steps
         self.cbs_timeout = cbs_timeout
         self._rng = np.random.default_rng(seed)
+        self.n_dynamic_obstacles = n_dynamic_obstacles
+        self.dynamic_pattern = dynamic_pattern
 
         self.n_agents = config.n_agents
         self.grid: Optional[Grid] = None
@@ -66,6 +71,7 @@ class MAPFEnv:
         self.t: int = 0
         self.goals_reached: Dict[int, int] = {}
         self.collisions: int = 0
+        self.dynamic_obstacles: List[DynamicObstacle] = []
 
         # CBS oracle (best-effort)
         self.cbs_paths: Optional[Dict[int, List[Position]]] = None
@@ -100,6 +106,16 @@ class MAPFEnv:
         self.goals_reached = {i: 0 for i in range(self.n_agents)}
         self.collisions = 0
 
+        # Spawn dynamic obstacles on free cells not used by agents
+        occupied = list(starts) + list(goals)
+        self.dynamic_obstacles = spawn_dynamic_obstacles(
+            self.n_dynamic_obstacles,
+            self.grid,
+            self._rng,
+            exclude=occupied,
+            pattern=self.dynamic_pattern,
+        )
+
         self._run_cbs_oracle(starts, goals)
 
         return self._all_obs()
@@ -114,13 +130,24 @@ class MAPFEnv:
         prev_dist = {i: self._manhattan(self.positions[i], self.goals[i])
                      for i in range(self.n_agents)}
 
-        # 1. Intended positions (wall check)
+        # 0. Move dynamic obstacles (they yield to current agent positions)
+        agent_cells = set(self.positions.values())
+        for obs in self.dynamic_obstacles:
+            obs.step(occupied=agent_cells)
+        dyn_cells = {obs.pos for obs in self.dynamic_obstacles}
+
+        # 1. Intended positions (wall check + dynamic obstacle check)
         intended: Dict[int, Position] = {}
         for i, a in actions.items():
             dx, dy = MOVES[a]
             x, y = self.positions[i]
             nx, ny = x + dx, y + dy
-            intended[i] = (nx, ny) if self.grid.is_free(nx, ny) else (x, y)
+            if self.grid.is_free(nx, ny) and (nx, ny) not in dyn_cells:
+                intended[i] = (nx, ny)
+            else:
+                intended[i] = (x, y)
+                if (nx, ny) in dyn_cells:
+                    self.collisions += 1  # collision with dynamic obstacle
 
         # 2. Vertex conflict: multiple agents targeting same cell → all stay
         cell_count = Counter(intended.values())
@@ -253,7 +280,7 @@ class MAPFEnv:
         px0, px1 = cx, cx + CROP_SIZE
         obs_ch = self._padded_grid[py0:py1, px0:px1].astype(np.float32)
 
-        # Agent channel
+        # Agent channel (other MARL agents = 1.0, dynamic obstacles = 0.5)
         agent_ch = np.zeros((CROP_SIZE, CROP_SIZE), dtype=np.float32)
         for other_id, (ox, oy) in self.positions.items():
             if other_id == agent_id:
@@ -262,6 +289,12 @@ class MAPFEnv:
             row = oy - y0
             if 0 <= row < CROP_SIZE and 0 <= col < CROP_SIZE:
                 agent_ch[row, col] = 1.0
+        for dyn_obs in self.dynamic_obstacles:
+            ox, oy = dyn_obs.pos
+            col = ox - x0
+            row = oy - y0
+            if 0 <= row < CROP_SIZE and 0 <= col < CROP_SIZE:
+                agent_ch[row, col] = 0.5  # distinct from MARL agents
 
         # Goal channel
         goal_ch = np.zeros((CROP_SIZE, CROP_SIZE), dtype=np.float32)

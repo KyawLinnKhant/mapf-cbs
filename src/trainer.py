@@ -69,13 +69,18 @@ class Trainer:
         os.makedirs(save_dir, exist_ok=True)
         self.save_dir = save_dir
 
+        self.n_dynamic_obstacles = 0
+        self.dynamic_pattern     = "mixed"
+
         # Curriculum + CBS annealing
         self.scheduler = DifficultyScheduler(start_level=start_level)
         self.annealer  = CBSAnnealer(warmup_steps, anneal_end)
 
         # Environment (starts at the chosen difficulty)
         config   = self.scheduler.current_config
-        self.env = MAPFEnv(config, max_steps=256)
+        self.env = MAPFEnv(config, max_steps=256,
+                           n_dynamic_obstacles=self.n_dynamic_obstacles,
+                           dynamic_pattern=self.dynamic_pattern)
 
         # MAPPO agent (critic scales to any N via mean-pool)
         self.agent = MAPPO(
@@ -158,7 +163,9 @@ class Trainer:
                     if new_level is not None:
                         new_cfg  = self.scheduler.current_config
                         self.agent.buffer.clear()          # flush stale transitions
-                        self.env = MAPFEnv(new_cfg, max_steps=256)
+                        self.env = MAPFEnv(new_cfg, max_steps=256,
+                                           n_dynamic_obstacles=self.n_dynamic_obstacles,
+                                           dynamic_pattern=self.dynamic_pattern)
                         self.agent.n_agents = new_cfg.n_agents
                         ep_reward = np.zeros(new_cfg.n_agents)
                         print(

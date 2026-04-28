@@ -50,10 +50,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--save-interval",  type=int,   default=100_000)
     p.add_argument("--device",         default="auto",
                    help="cpu | cuda | mps | auto")
-    p.add_argument("--resume",         default=None,
+    p.add_argument("--resume",              default=None,
                    help="Path to checkpoint .pt file to resume from")
-    p.add_argument("--resume-step",    type=int, default=0,
+    p.add_argument("--resume-step",         type=int, default=0,
                    help="Global step count at resume point (for logging/scheduling)")
+    p.add_argument("--dynamic-obstacles",   type=int, default=0,
+                   help="Dynamic obstacles per episode (0=off). Makes policy robust to moving hazards.")
+    p.add_argument("--dynamic-pattern",     default="mixed",
+                   choices=["random_walk", "patrol", "mixed"])
     return p.parse_args()
 
 
@@ -90,6 +94,8 @@ def main() -> None:
         save_interval  = args.save_interval,
         device         = device,
     )
+    trainer.n_dynamic_obstacles = args.dynamic_obstacles
+    trainer.dynamic_pattern     = args.dynamic_pattern
 
     if args.resume:
         trainer.agent.load(args.resume)

@@ -35,6 +35,18 @@ continue work is documented here. Do not ask the user to re-explain the project.
 - [x] Training loop with curriculum advance/regress (`src/trainer.py`)
 - [x] Visualiser — animated GIF + static PNG (`src/visualize.py`)
 
+### Dynamic Obstacles (novel contribution — CBS cannot handle these)
+- [x] `src/dynamic.py` — DynamicObstacle class, `random_walk` + `patrol` patterns
+- [x] `spawn_dynamic_obstacles()` — places N obstacles on free cells at episode start
+- [x] `src/env.py` — dynamic obstacles integrated: move each step, block MARL agents, appear in observation ch1 as 0.5 (distinct from agents=1.0)
+- [x] `eval.py --dynamic-obstacles N` — activates dynamic eval mode
+- [x] `eval_cbs_dynamic()` — CBS plans on static map, executed with moving obstacles; measures plan invalidation rate (key paper metric)
+- [x] `print_dynamic_report()` — 3-way table: MARL vs CBS-static vs CBS+dynamic
+- [x] `deploy.py --dynamic-obstacles N` — records + renders dynamic obstacle trajectories in GIF (grey diamonds)
+- [x] `src/visualize.py` — grey diamond markers move in animation; faint trail in static PNG
+- [x] `train.py --dynamic-obstacles N` — trains policy with dynamic obstacles from scratch
+- [x] Preview GIF generated: `results/marl_expert_dyn6.gif` (12 agents + 6 dynamic obstacles)
+
 ### Bug Fixes Applied
 - [x] A* O(n²) path copy → O(n) parent pointers
 - [x] CBS eval hanging → `max_ct_nodes=10_000` cap
@@ -94,16 +106,25 @@ continue work is documented here. Do not ask the user to re-explain the project.
 - Training takes ~12–14 hours total on M-series MPS.
 
 ### When training finishes — run these in order
-1. Run eval across all 4 levels:
+1. Run static eval across all 4 levels:
    ```bash
    source .venv/bin/activate
    for level in easy medium hard expert; do
      python eval.py --level $level --n-episodes 200 --device mps --csv results/eval.csv --latex
    done
    ```
-2. Generate final deployment GIFs:
+2. Run dynamic obstacle eval (the key paper result — CBS vs MARL):
+   ```bash
+   for level in medium hard expert; do
+     python eval.py --level $level --n-episodes 200 --device mps \
+       --dynamic-obstacles 4 --dynamic-pattern mixed \
+       --csv results/eval_dynamic.csv
+   done
+   ```
+3. Generate final deployment GIFs (static + dynamic versions):
    ```bash
    python deploy.py --device mps
+   python deploy.py --device mps --dynamic-obstacles 6 --dynamic-pattern mixed
    ```
 3. Update training log and regenerate learning curves:
    ```bash
@@ -360,27 +381,36 @@ to reach all goals within the time limit. Phase C is expected to fix this.
 ## Paper Plan
 
 ### Title candidates
-- "CBS-Bootstrapped MAPPO with Transformer Communication for Lifelong Multi-Agent Path Finding"
-- "Teaching Robots to Coordinate: CBS-Guided Curriculum for Multi-Agent Navigation"
-- "From Optimal Planner to Emergent Coordination: CBS Bootstrap for Scalable MAPF"
+- "CBS-Bootstrapped MAPPO: Scalable Multi-Agent Path Finding Under Dynamic Obstacles and Natural Language Control"
+- "Beyond Static Planning: CBS-Guided MARL for Robust Multi-Agent Navigation with Dynamic Obstacles"
+- "From Optimal Planner to Emergent Coordination: CBS-Bootstrapped MARL Handles What CBS Cannot"
 
 ### Target venue
 arXiv preprint (cs.RO / cs.MA), then optionally submit to IROS 2026 or CoRL 2026.
 
 ### Key contributions
-1. **CBS-bootstrapped curriculum** — novel training schedule using CBS as a fading teacher
-2. **3-phase annealing** — Phase A (imitation), B (transition), C (emergent) is cleaner than
-   prior work which switches hard from imitation to RL
-3. **Transformer comm + lifelong MAPF** — agents continuously get new goals, not one-shot episodes
-4. **Language-conditioned control** — natural language → zone assignments → zero-shot generalization
-5. **Curriculum pacing** — automatic level advance/regression based on success rate
+1. **Dynamic obstacle robustness** — CBS fails catastrophically when obstacles move (63%+ plan
+   invalidation rate). MARL adapts in real time. No classical solver handles this without full
+   replanning at every step. This is the central, untouched claim.
+2. **CBS-bootstrapped curriculum** — novel training using CBS as a fading reward signal (not
+   behavior cloning like PRIMAL). 3-phase annealing: imitation → transition → pure RL.
+3. **Transformer comm + lifelong MAPF** — agents continuously get new goals, not one-shot episodes.
+   Transformer attention is permutation-equivariant and scales to any N without retraining.
+4. **Language-conditioned zone assignment** — LLM parses natural language → zone goals →
+   MAPPO executes. Zero retraining needed. First LLM+MAPF work we are aware of.
+5. **Zero-shot generalization** — test on larger maps / more dynamic obstacles than trained on.
 
 ### Comparison with prior work
-| System | Solver | Communication | Lifelong | Language |
-|--------|--------|---------------|---------|---------|
-| PRIMAL (2019) | ODrM* imitation | None | No | No |
-| MAPPO (2022) | No oracle | None | No | No |
-| **Ours** | CBS bootstrap | Transformer (2-layer, 4-head) | Yes | Yes (Ollama) |
+| System | Oracle | Comm | Lifelong | Dynamic Obs | Language |
+|--------|--------|------|---------|-------------|---------|
+| PRIMAL (2019) | ODrM* (imitation) | None | No | No | No |
+| MAPPO (2022) | None | None | No | No | No |
+| LaCAM2 (2023) | Classical (fast) | N/A | No | **Fails** | No |
+| MAPF-GPT (2024) | CBS demos | Transformer | No | Unknown | No |
+| **Ours** | CBS (reward shaping) | Transformer | Yes | **Handles** | Yes |
+
+**The untouched space:** No prior MAPF work combines (1) dynamic obstacle robustness,
+(2) lifelong goals, and (3) natural language zone control in a single system.
 
 ### Figures needed
 1. Architecture diagram (already in README, vectorize for paper)

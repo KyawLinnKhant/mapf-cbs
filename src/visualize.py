@@ -31,6 +31,7 @@ def animate(
     interval: int = 200,
     trail_len: int = 4,
     save_path: Optional[str] = None,
+    dynamic_obstacle_paths: Optional[Dict[int, List[Position]]] = None,
 ) -> FuncAnimation:
     """
     Produce a matplotlib FuncAnimation of agents moving on the grid.
@@ -45,8 +46,10 @@ def animate(
     save_path : if provided, save a GIF to this path (requires Pillow)
     """
     n = len(paths)
+    dyn_paths = dynamic_obstacle_paths or {}
     max_len = max(len(p) for p in paths.values())
     padded = {a: _pad_path(paths[a], max_len) for a in paths}
+    dyn_padded = {k: _pad_path(dyn_paths[k], max_len) for k in dyn_paths}
 
     fig, ax = plt.subplots(figsize=(max(6, grid.width * 0.6), max(6, grid.height * 0.6)))
     ax.set_xlim(-0.5, grid.width - 0.5)
@@ -78,6 +81,18 @@ def animate(
         color = AGENT_COLORS[i % len(AGENT_COLORS)]
         ax.plot(gx, gy, marker="*", markersize=14, color=color,
                 markeredgecolor="white", markeredgewidth=0.5, zorder=3)
+
+    # Dynamic obstacle markers (grey diamonds)
+    dyn_markers = []
+    for k in dyn_padded:
+        x, y = dyn_padded[k][0]
+        marker = plt.Polygon(
+            [(x, y+0.38), (x+0.38, y), (x, y-0.38), (x-0.38, y)],
+            closed=True, facecolor="#888888", edgecolor="#cccccc",
+            linewidth=0.8, zorder=4, alpha=0.85,
+        )
+        ax.add_patch(marker)
+        dyn_markers.append(marker)
 
     # Agent circles (initialised at t=0)
     agent_circles = []
@@ -113,6 +128,11 @@ def animate(
     )
 
     def _update(frame: int):
+        # Move dynamic obstacle diamonds
+        for k, marker in enumerate(dyn_markers):
+            x, y = dyn_padded[k][frame]
+            marker.set_xy([(x, y+0.38), (x+0.38, y), (x, y-0.38), (x-0.38, y)])
+
         for i in range(n):
             x, y = padded[i][frame]
             agent_circles[i].set_center((x, y))
@@ -125,7 +145,7 @@ def animate(
             trail_lines[i].set_data(xs, ys)
 
         time_text.set_text(f"t = {frame}")
-        return agent_circles + agent_labels + trail_lines + [time_text]
+        return agent_circles + agent_labels + trail_lines + dyn_markers + [time_text]
 
     anim = FuncAnimation(
         fig, _update, frames=max_len,
@@ -146,6 +166,7 @@ def plot_paths(
     goals: List[Position],
     title: str = "MAPF — CBS Solution",
     save_path: Optional[str] = None,
+    dynamic_obstacle_paths: Optional[Dict[int, List[Position]]] = None,
 ) -> None:
     """Static plot of all agent paths."""
     fig, ax = plt.subplots(figsize=(max(6, grid.width * 0.7), max(6, grid.height * 0.7)))
@@ -182,6 +203,20 @@ def plot_paths(
         # goal
         ax.plot(goals[i][0], goals[i][1], "*", color=color, markersize=14,
                 markeredgecolor="white", markeredgewidth=0.5, zorder=5)
+
+    # Draw dynamic obstacle start+end positions as grey diamonds
+    if dynamic_obstacle_paths:
+        for k, dpath in dynamic_obstacle_paths.items():
+            if not dpath:
+                continue
+            # Draw full trajectory as faint grey trail
+            xs = [p[0] for p in dpath]
+            ys = [p[1] for p in dpath]
+            ax.plot(xs, ys, color="#888888", linewidth=1, alpha=0.3, zorder=2)
+            # Final position as diamond
+            ax.plot(xs[-1], ys[-1], marker="D", markersize=8,
+                    color="#888888", markeredgecolor="#cccccc",
+                    markeredgewidth=0.6, alpha=0.85, zorder=4)
 
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches="tight",
