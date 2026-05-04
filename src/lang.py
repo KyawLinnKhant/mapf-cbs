@@ -11,17 +11,27 @@ from .zones import available_zones, ZONE_ALIASES
 
 _SYSTEM_PROMPT = """\
 You are a warehouse robot fleet coordinator.
-Parse the user's command and assign each robot to a named zone.
+Parse the command and output a JSON with two fields:
+- "explicit": list the robots with their specific zones
+- "rest_zone": the zone for ALL remaining robots not listed in explicit
 
-Respond ONLY with a valid JSON object — no explanation, no markdown, no extra text.
-Format:
-{{"assignments": [{{"agent": <int>, "zone": "<zone_name>"}}, ...]}}
+Respond ONLY with valid JSON — no explanation, no markdown.
+Format: {{"explicit": [{{"agent": <int>, "zone": "<zone>"}},...], "rest_zone": "<zone>"}}
 
 Rules:
-- Assign ALL robots (IDs 0 to {n_agents_minus_1})
-- "the rest" / "others" / "remaining" = all robots not yet assigned
+- "rest_zone" = zone for every robot NOT in "explicit"
+- If ALL robots go to the same zone: explicit=[], rest_zone=that zone
 - Only use zone names from the available list
-- If a command is ambiguous, distribute evenly across mentioned zones
+
+Examples:
+Command: "Agents 0,1,2 to loading_bay, rest to charging"
+Response: {{"explicit": [{{"agent":0,"zone":"loading_bay"}},{{"agent":1,"zone":"loading_bay"}},{{"agent":2,"zone":"loading_bay"}}], "rest_zone": "charging"}}
+
+Command: "All agents to inspection"
+Response: {{"explicit": [], "rest_zone": "inspection"}}
+
+Command: "Half to storage_a, half to dispatch" (robots 0-5 explicit, 6-11 dispatch)
+Response: {{"explicit": [{{"agent":0,"zone":"storage_a"}},{{"agent":1,"zone":"storage_a"}},{{"agent":2,"zone":"storage_a"}},{{"agent":3,"zone":"storage_a"}},{{"agent":4,"zone":"storage_a"}},{{"agent":5,"zone":"storage_a"}}], "rest_zone": "dispatch"}}
 """
 
 
@@ -31,28 +41,66 @@ def _build_prompt(command: str, n_agents: int, level: str) -> str:
     return (
         f"Available zones: {', '.join(zones)}\n"
         f"Aliases: {aliases}\n"
-        f"Number of robots: {n_agents} (IDs 0–{n_agents-1})\n\n"
+        f"Total robots: {n_agents} (IDs 0 to {n_agents-1})\n\n"
         f"Command: {command}"
     )
 
 
 def _parse_json_response(text: str, n_agents: int, level: str) -> Dict[int, str]:
-    """Extract JSON from LLM response and validate."""
-    # Strip markdown code fences if present
+    """Extract JSON from LLM response and validate.
+
+    Handles two formats:
+    1. New compact: {"default": "zone", "overrides": {"0": "zone", ...}}
+    2. Legacy full: {"assignments": [{"agent": 0, "zone": "..."}, ...]}
+    """
+    # Strip markdown code fences and tidy whitespace
     text = re.sub(r"```(?:json)?", "", text).strip()
+
+    valid_zones = set(available_zones(level))
+    first_zone  = available_zones(level)[0]
+
+    def _sanitise(z: str) -> str:
+        z = str(z).lower().strip()
+        return z if z in valid_zones else first_zone
 
     try:
         data = json.loads(text)
-        assignments = {int(a["agent"]): a["zone"] for a in data["assignments"]}
-        zones = set(available_zones(level))
-        # Fill in any missing agents with first zone
-        for i in range(n_agents):
-            if i not in assignments:
-                assignments[i] = available_zones(level)[0]
-        return assignments
+
+        # Format 1: explicit + rest_zone
+        if "rest_zone" in data:
+            rest = _sanitise(data.get("rest_zone", first_zone))
+            assignments = {i: rest for i in range(n_agents)}
+            for entry in (data.get("explicit") or []):
+                try:
+                    assignments[int(entry["agent"])] = _sanitise(entry["zone"])
+                except (KeyError, TypeError, ValueError):
+                    pass
+            return assignments
+
+        # Format 2: default + overrides
+        if "default" in data:
+            default_zone = _sanitise(data.get("default", first_zone))
+            assignments  = {i: default_zone for i in range(n_agents)}
+            for k, v in (data.get("overrides") or {}).items():
+                try:
+                    assignments[int(k)] = _sanitise(v)
+                except (ValueError, TypeError):
+                    pass
+            return assignments
+
+        # Format 3: legacy assignments list
+        if "assignments" in data:
+            assignments = {int(a["agent"]): _sanitise(a["zone"])
+                           for a in data["assignments"]}
+            for i in range(n_agents):
+                if i not in assignments:
+                    assignments[i] = first_zone
+            return assignments
+
     except Exception:
-        # Fallback: distribute all agents across first zone
-        return {i: available_zones(level)[0] for i in range(n_agents)}
+        pass
+
+    return _rule_based_parse(text, n_agents, level)
 
 
 def parse_command(

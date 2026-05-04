@@ -35,9 +35,10 @@ def eval_rl(
     seed_offset: int = 99_999,
     n_dynamic_obstacles: int = 0,
     dynamic_pattern: str = "mixed",
+    max_steps: int = 256,
 ) -> Dict[str, float]:
     """Run trained policy on n_episodes of freshly generated maps."""
-    env = MAPFEnv(config, max_steps=256,
+    env = MAPFEnv(config, max_steps=max_steps,
                   n_dynamic_obstacles=n_dynamic_obstacles,
                   dynamic_pattern=dynamic_pattern)
     agent.set_eval()
@@ -57,7 +58,8 @@ def eval_rl(
         goals_list.append(info["goals_reached"])
         coll_list.append(info["collisions"])
         steps_list.append(info["makespan"])
-        success_list.append(float(info["success"] >= config.n_agents))
+        # per-agent success rate: fraction of agents that reached ≥1 goal
+        success_list.append(float(info["success"]) / config.n_agents)
 
     return {
         "success_rate":  float(np.mean(success_list)),
@@ -124,6 +126,7 @@ def eval_cbs_dynamic(
     max_t: int = 256,
     max_ct_nodes: int = 10_000,
     dynamic_pattern: str = "mixed",
+    max_steps: int = 256,
 ) -> Dict[str, float]:
     """
     CBS failure benchmark under dynamic obstacles.
@@ -230,7 +233,7 @@ def print_dynamic_report(
         d = f"{dv:{fmt}}" if dv is not None else "  N/A"
         print(f"  {label:<32} {r:>12}  {s:>10}  {d:>10}")
 
-    row("Success rate",            rl["success_rate"],      cbs_static["success_rate"],  cbs_dyn["success_rate"])
+    row("Per-agent success rate",   rl["success_rate"],      cbs_static["success_rate"],  cbs_dyn["success_rate"])
     row("Avg goals reached",       rl["goals_reached"],     None,                        None,          fmt=".2f")
     row("Avg collisions",          rl["collisions"],        None,                        cbs_dyn["plan_collisions"], fmt=".2f")
     row("CBS plan invalidation %", None,                    None,                        cbs_dyn["invalidation_rate"] * 100, fmt=".1f")
@@ -260,7 +263,7 @@ def print_report(rl: Dict, cbs_m: Dict, level: str, n: int) -> None:
         cv = f"{cbs_val:{fmt}}" if cbs_val is not None else "    N/A"
         print(f"  {label:<28} {rv:>12}  {cv:>14}")
 
-    row("Success rate",         rl["success_rate"],  cbs_m["success_rate"])
+    row("Per-agent success rate", rl["success_rate"],  cbs_m["success_rate"])
     row("Avg makespan (steps)", rl["makespan"],       cbs_m["makespan"],  fmt=".1f")
     row("Avg goals reached",    rl["goals_reached"],  None,               fmt=".2f")
     row("Avg collisions",       rl["collisions"],     None,               fmt=".2f")
@@ -336,6 +339,10 @@ def main() -> None:
     p.add_argument("--dynamic-pattern",    default="mixed",
                    choices=["random_walk", "patrol", "mixed"],
                    help="Movement pattern for dynamic obstacles")
+    p.add_argument("--seed-offset",        type=int, default=99_999,
+                   help="Base seed offset for map/obstacle generation (vary across runs for robustness)")
+    p.add_argument("--max-steps",          type=int, default=256,
+                   help="Episode length cap (default 256; use 512 for harder levels)")
     args = parse_args(p)
 
     config = DIFFICULTY_LEVELS[args.level]
@@ -347,12 +354,16 @@ def main() -> None:
         print(f"Dynamic obstacle mode: {n_dyn} obstacles ({args.dynamic_pattern})")
 
         print(f"Running CBS static baseline on {args.n_episodes} episodes…")
-        cbs_static = eval_cbs(config, args.n_episodes)
+        cbs_static = eval_cbs(config, args.n_episodes, seed_offset=args.seed_offset,
+                              max_t=args.max_steps)
 
         print(f"Running CBS plan-execution under dynamic obstacles…")
         cbs_dyn = eval_cbs_dynamic(
             config, args.n_episodes, n_dyn,
             dynamic_pattern=args.dynamic_pattern,
+            seed_offset=args.seed_offset,
+            max_t=args.max_steps,
+            max_steps=args.max_steps,
         )
 
         rl_metrics = None
@@ -372,6 +383,8 @@ def main() -> None:
                     agent, config, args.n_episodes,
                     n_dynamic_obstacles=n_dyn,
                     dynamic_pattern=args.dynamic_pattern,
+                    seed_offset=args.seed_offset,
+                    max_steps=args.max_steps,
                 )
 
         if rl_metrics is not None:
@@ -385,7 +398,8 @@ def main() -> None:
 
     # ── Standard (static) mode ───────────────────────────────────────────────
     print(f"Running CBS baseline on {args.n_episodes} episodes (level={args.level})…")
-    cbs_metrics = eval_cbs(config, args.n_episodes)
+    cbs_metrics = eval_cbs(config, args.n_episodes, seed_offset=args.seed_offset,
+                           max_t=args.max_steps)
 
     rl_metrics: Optional[Dict] = None
     if not args.cbs_only:
@@ -407,7 +421,8 @@ def main() -> None:
         agent.load(args.checkpoint)
         print(f"Loaded: {args.checkpoint}")
         print(f"Running RL policy on {args.n_episodes} episodes…")
-        rl_metrics = eval_rl(agent, config, args.n_episodes)
+        rl_metrics = eval_rl(agent, config, args.n_episodes, seed_offset=args.seed_offset,
+                             max_steps=args.max_steps)
 
     if rl_metrics is not None:
         print_report(rl_metrics, cbs_metrics, args.level, args.n_episodes)

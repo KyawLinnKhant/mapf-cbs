@@ -3,8 +3,16 @@ __pycache__/
 *.pyo
 .DS_Store
 *.gif
-*.png
 results/
 .venv/
 checkpoints/
+checkpoints_2m_run/
+checkpoints_*/
+paper/figs/
+paper/arxiv_submission/
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.blg
+paper/missfont.log
 !results/.gitkeep

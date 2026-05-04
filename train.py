@@ -44,6 +44,10 @@ def parse_args() -> argparse.Namespace:
     # Curriculum
     p.add_argument("--start-level",    default="easy",
                    choices=["easy", "medium", "hard", "expert"])
+    p.add_argument("--advance-threshold", type=float, default=0.70,
+                   help="Curriculum advance threshold (per-agent success rate, default 0.70)")
+    p.add_argument("--env-max-steps",  type=int,   default=256,
+                   help="Max steps per episode during training (default 256; use 512 for harder levels)")
     # Output
     p.add_argument("--save-dir",       default="checkpoints")
     p.add_argument("--log-interval",   type=int,   default=2_000)
@@ -88,7 +92,9 @@ def main() -> None:
         warmup_steps   = args.warmup_steps,
         anneal_end     = args.anneal_end,
         cbs_bonus      = args.cbs_bonus,
-        start_level    = args.start_level,
+        start_level        = args.start_level,
+        advance_threshold  = args.advance_threshold,
+        env_max_steps      = args.env_max_steps,
         save_dir       = args.save_dir,
         log_interval   = args.log_interval,
         save_interval  = args.save_interval,
@@ -100,6 +106,7 @@ def main() -> None:
     if args.resume:
         trainer.agent.load(args.resume)
         trainer._global_step = args.resume_step
+        trainer.annealer._step = args.resume_step  # sync CBS phase to resume point
         print(f"Resumed from {args.resume} at step {args.resume_step:,}")
 
     trainer.train()

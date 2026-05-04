@@ -1,0 +1,68 @@
+\begin{thebibliography}{10}
+
+\bibitem{li2021mapflns2}
+Jiaoyang Li, Zhe Chen, Daniel Harabor, Peter~J. Stuckey, and Sven Koenig.
+\newblock {MAPF-LNS2}: Fast repairing for multi-agent path finding via large
+  neighbourhood search.
+\newblock In {\em Proceedings of the AAAI Conference on Artificial
+  Intelligence}, volume~36, pages 10256--10265, 2022.
+
+\bibitem{liang2023code4robotics}
+Jacky Liang, Wenlong Huang, Fei Xia, Peng Xu, Karol Hausman, Brian Ichter, Pete
+  Florence, and Andy Zeng.
+\newblock Code as policies: Language model programs for embodied control.
+\newblock {\em Proceedings of the IEEE International Conference on Robotics and
+  Automation (ICRA)}, 2023.
+
+\bibitem{ma2017lifelong}
+Hang Ma, Jiaoyang Li, T.~K.~Satish Kumar, and Sven Koenig.
+\newblock Lifelong multi-agent path finding for online pickup and delivery
+  tasks.
+\newblock {\em arXiv preprint arXiv:1705.10868}, 2017.
+
+\bibitem{ng1999rewardshaping}
+Andrew~Y. Ng, Daishi Harada, and Stuart~J. Russell.
+\newblock Policy invariance under reward transformations: Theory and
+  application to reward shaping.
+\newblock In {\em Proceedings of the International Conference on Machine
+  Learning (ICML)}, pages 278--287, 1999.
+
+\bibitem{sartoretti2019primal}
+Guillaume Sartoretti, Justin Kerr, Yunfei Shi, Glenn Wagner, T.~K.~Satish
+  Kumar, Sven Koenig, and Howie Choset.
+\newblock {PRIMAL}: Pathfinding via reinforcement and imitation multi-agent
+  learning.
+\newblock {\em IEEE Robotics and Automation Letters}, 4(3):2378--2385, 2019.
+
+\bibitem{schulman2017ppo}
+John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov.
+\newblock Proximal policy optimization algorithms.
+\newblock In {\em arXiv preprint arXiv:1707.06347}, 2017.
+
+\bibitem{sharon2015cbs}
+Guni Sharon, Roni Stern, Ariel Felner, and Nathan~R. Sturtevant.
+\newblock Conflict-based search for optimal multi-agent pathfinding.
+\newblock {\em Artificial Intelligence}, 219:40--66, 2015.
+
+\bibitem{vaswani2017attention}
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
+  Aidan~N Gomez, {\L}ukasz Kaiser, and Illia Polosukhin.
+\newblock Attention is all you need.
+\newblock In {\em Advances in Neural Information Processing Systems (NeurIPS)},
+  volume~30, 2017.
+
+\bibitem{scrimp2023}
+Yutong Wang, Liron Luo, Justin Svegliato, and Guillaume Sartoretti.
+\newblock {SCRIMP}: Scalable communication for reinforcement- and
+  imitation-learning-based multi-agent pathfinding.
+\newblock {\em arXiv preprint arXiv:2303.10947}, 2023.
+
+\bibitem{yu2022mappo}
+Chao Yu, Akash Velu, Eugene Vinitsky, Jiaxuan Gao, Yu~Wang, Alexandre Bayen,
+  and Yi~Wu.
+\newblock The surprising effectiveness of {PPO} in cooperative multi-agent
+  games.
+\newblock In {\em Advances in Neural Information Processing Systems (NeurIPS)},
+  volume~35, 2022.
+
+\end{thebibliography}

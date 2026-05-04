@@ -53,6 +53,8 @@ class Trainer:
         cbs_bonus:      float = 0.3,
         # Curriculum
         start_level:    str   = "easy",
+        advance_threshold: float = 0.70,
+        env_max_steps:  int   = 256,
         # Output
         save_dir:       str   = "checkpoints",
         log_interval:   int   = 2_000,        # print every N env steps
@@ -73,12 +75,14 @@ class Trainer:
         self.dynamic_pattern     = "mixed"
 
         # Curriculum + CBS annealing
-        self.scheduler = DifficultyScheduler(start_level=start_level)
-        self.annealer  = CBSAnnealer(warmup_steps, anneal_end)
+        self.scheduler    = DifficultyScheduler(start_level=start_level,
+                                                advance_threshold=advance_threshold)
+        self.annealer     = CBSAnnealer(warmup_steps, anneal_end)
+        self.env_max_steps = env_max_steps
 
         # Environment (starts at the chosen difficulty)
         config   = self.scheduler.current_config
-        self.env = MAPFEnv(config, max_steps=256,
+        self.env = MAPFEnv(config, max_steps=env_max_steps,
                            n_dynamic_obstacles=self.n_dynamic_obstacles,
                            dynamic_pattern=self.dynamic_pattern)
 
@@ -163,7 +167,7 @@ class Trainer:
                     if new_level is not None:
                         new_cfg  = self.scheduler.current_config
                         self.agent.buffer.clear()          # flush stale transitions
-                        self.env = MAPFEnv(new_cfg, max_steps=256,
+                        self.env = MAPFEnv(new_cfg, max_steps=self.env_max_steps,
                                            n_dynamic_obstacles=self.n_dynamic_obstacles,
                                            dynamic_pattern=self.dynamic_pattern)
                         self.agent.n_agents = new_cfg.n_agents
