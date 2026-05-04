@@ -4,6 +4,8 @@
 > zone assignment — trained on procedurally generated warehouse maps.
 > Pure Python · PyTorch · Ollama · No ROS · No Isaac Sim · Mac-native (MPS).
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20028633.svg)](https://doi.org/10.5281/zenodo.20028633)
+
 ![demo](results/demo.gif)
 
 ---
